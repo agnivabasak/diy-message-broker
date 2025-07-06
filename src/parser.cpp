@@ -5,6 +5,7 @@
 #include "../include/nats/custom_specific_exceptions.hpp"
 #include <iostream>
 #include <cstring>
+#include <string_view>
 #include <nlohmann/json.hpp>
 
 using namespace std; 
@@ -21,7 +22,9 @@ namespace nats{
                             c->m_state = NatsParserState::OP_C;
                         } else if(b=='P' || b=='p'){
                             c->m_state = NatsParserState::OP_P;  
-                        } else{
+                        } else if(b=='S' || b=='s'){
+                            c->m_state = NatsParserState::OP_S;
+                        }else{
                             throw UnknownProtocolOperationException();
                         }
                         break;
@@ -89,7 +92,7 @@ namespace nats{
                         } else if(b=='\n'){
                             //validate json
                             //string view is memory efficient
-                            //as it doesnt copy contents rather just gives a view fo the memory contents of the char buffer
+                            //as it doesnt copy contents rather just gives a view of the memory contents of the char buffer
                             string_view json_view;
                             if(c->m_arg_len>0){
                                 json_view = string_view(c->m_arg_buffer,c->m_arg_len);
@@ -123,6 +126,8 @@ namespace nats{
                             c->m_state = NatsParserState::OP_PI;
                         } else if(b=='O'||b=='o'){
                             c->m_state = NatsParserState::OP_PO;
+                        } else if(b=='U'||b=='u'){
+                            c->m_state = NatsParserState::OP_PU;
                         } else {
                             throw UnknownProtocolOperationException();
                         }
@@ -179,6 +184,147 @@ namespace nats{
                             throw UnknownProtocolOperationException();
                         }
                         break;
+                    case NatsParserState::OP_PU:
+                        if(b=='b'||b=='B'){
+                            c->m_state = NatsParserState::OP_PUB;
+                        } else {
+                            throw UnknownProtocolOperationException();
+                        }
+                        break;
+                    case NatsParserState::OP_PUB:
+                        if(b==' '||b=='\t'){
+                            c->m_state = NatsParserState::OP_PUB_SPC;
+                        } else {
+                            throw UnknownProtocolOperationException();
+                        }
+                    case NatsParserState::OP_PUB_SPC:
+                        if(b==' '||b=='\t'){
+                        } else {
+                            c->m_state = NatsParserState::PUB_ARG;
+                            c->m_as=i;
+                        }
+                        break;
+                    case NatsParserState::PUB_ARG:
+                        if(b=='\r'){
+                            c->m_drop=1;
+                        } else if(b=='\n'){
+                            //string view is memory efficient
+                            //as it doesnt copy contents rather just gives a view of the memory contents of the char buffer
+                            string_view arg_view;
+                            if(c->m_arg_len>0){
+                                arg_view = string_view(c->m_arg_buffer,c->m_arg_len);
+                            } else{
+                                arg_view = string_view(buf + c->m_as, i - c->m_drop - c->m_as);
+                            } 
+
+                            c->processPubArgs(arg_view);
+                            c->m_state = NatsParserState::MSG_PAYLOAD;
+                            c->m_drop = 0;
+                            c->m_as = i+1;
+                        } else {
+                            if(c->m_arg_len>0){
+                                if(c->maxArgSizeReached()){
+                                    throw MaximumArgumentSizeReached();
+                                }
+                                c->m_arg_buffer[c->m_arg_len] = b;
+                                c->m_arg_len++;
+                            }
+                        }
+                        
+                        break;
+                    case NatsParserState::MSG_PAYLOAD:
+                        if(b=='\r'){
+                            c->m_drop = 1;
+                            c->m_state =  NatsParserState::MSG_END_R;
+                        } else if(b=='\n'){
+                            throw MessageParseException();
+                        } else {
+                            if(c->m_msg_len>0){
+                                if(c->maxMessageSizeReached()){
+                                    throw MaximumMessageSizeReached();
+                                }
+                                c->m_msg_buffer[c->m_msg_len] = b;
+                                c->m_msg_len++;
+                            }
+                        }
+                        break;
+                    case NatsParserState::MSG_END_R:
+                        if(b=='\n'){
+                            c->m_state = NatsParserState::MSG_END_N;
+                        } else{
+                            throw MessageParseException();
+                        }
+                    case NatsParserState::MSG_END_N:
+                        if(b=='\n'){
+                            string_view msg_view;
+                            if(c->m_msg_len>0){
+                                msg_view = string_view(c->m_msg_buffer,c->m_msg_len);
+                            } else{
+                                msg_view = string_view(buf + c->m_as, i - c->m_drop - c->m_as);
+                            } 
+                            if(msg_view.size()!=c->m_payload_size){
+                                throw PayloadSizeMismatchException();
+                            }
+                            c->processPub(msg_view);
+                            c->resetParsingVars();
+                        } else{
+                            throw MessageParseException();
+                        }
+                        break;
+                    case NatsParserState::OP_S:
+                        if(b=='U' || b=='u'){
+                            c->m_state = NatsParserState::OP_SU;
+                        } else {
+                            throw UnknownProtocolOperationException();
+                        }
+                        break;
+                    case NatsParserState::OP_SU:
+                        if(b=='B' || b=='b'){
+                            c->m_state = NatsParserState::OP_SUB;
+                        } else {
+                            throw UnknownProtocolOperationException();
+                        }
+                        break;
+                    case NatsParserState::OP_SUB:
+                        if(b==' '||b=='\t'){
+                            c->m_state = NatsParserState::OP_SUB_SPC;
+                        } else {
+                            throw UnknownProtocolOperationException();
+                        }
+                        break;
+                    case NatsParserState::OP_SUB_SPC:
+                        if(b==' '||b=='\t'){
+                        } else {
+                            c->m_state = NatsParserState::SUB_ARG;
+                            c->m_as = i;
+                        }
+                        break;
+                    case NatsParserState::SUB_ARG:
+                        if(b=='\r'){
+                            c->m_drop=1;
+                        } else if(b=='\n'){
+                            //string view is memory efficient
+                            //as it doesnt copy contents rather just gives a view of the memory contents of the char buffer
+                            string_view arg_view;
+                            if(c->m_arg_len>0){
+                                arg_view = string_view(c->m_arg_buffer,c->m_arg_len);
+                            } else{
+                                arg_view = string_view(buf + c->m_as, i - c->m_drop - c->m_as);
+                            } 
+
+                            c->processSub(arg_view);
+                            c->resetParsingVars();
+                        } else {
+                            if(c->m_arg_len>0){
+                                if(c->maxArgSizeReached()){
+                                    throw MaximumArgumentSizeReached();
+                                }
+                                c->m_arg_buffer[c->m_arg_len] = b;
+                                c->m_arg_len++;
+                            }
+                        }
+                        
+                        break;
                     default:
                         throw UnknownProtocolOperationException();
                         break;
@@ -187,12 +333,25 @@ namespace nats{
             //This indicates that the buffer is ending but the argument list hasnt been completely sent yet
             if(c->m_state==NatsParserState::OP_START){
                 //Operation successfully parsed and we are back to OP_START
-            } else if(c->m_state==NatsParserState::CONNECT_ARG){
+            } else if(
+                c->m_state==NatsParserState::CONNECT_ARG 
+                || c->m_state==NatsParserState::PUB_ARG
+                || c->m_state==NatsParserState::SUB_ARG
+                ){
                 if(c->m_arg_len==0){
                     c->m_arg_len = buffer_size - c->m_as;
                     memcpy(c->m_arg_buffer, buf+c->m_as, c->m_arg_len);
                 }
-            } else {
+            } else if(c->m_state==NatsParserState::MSG_PAYLOAD) {
+                if(c->m_msg_len==0){
+                    if(c->m_as==buffer_size){
+                        c->m_as =0;
+                    } else{
+                        c->m_msg_len = buffer_size - c->m_as;
+                        memcpy(c->m_msg_buffer, buf+c->m_as, c->m_msg_len); 
+                    }
+                }
+            }   else {
                 throw UnknownProtocolOperationException();
             }
         } catch (const NatsParserException &ex) {

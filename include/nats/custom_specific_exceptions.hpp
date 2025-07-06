@@ -31,10 +31,34 @@ namespace nats
             : NatsParserException("Maximum argument size reached!"){}
     };
 
+    class MaximumMessageSizeReached: public NatsParserException {
+    public:
+        explicit MaximumMessageSizeReached()
+            : NatsParserException("Maximum message payload size reached!"){}
+    };
+
     class JsonParseExcpetion: public NatsParserException {
     public:
         explicit JsonParseExcpetion()
             : NatsParserException("Invalid JSON provided!"){}
+    };
+
+    class ArgumentParseException: public NatsParserException {
+    public:
+        explicit ArgumentParseException()
+            : NatsParserException("Incorrect argument format!") {}
+    };
+
+    class MessageParseException: public NatsParserException {
+    public:
+        explicit MessageParseException()
+            : NatsParserException("Incorrect Message Payload format!") {}
+    };
+
+    class PayloadSizeMismatchException: public NatsParserException {
+    public:
+        explicit PayloadSizeMismatchException()
+            : NatsParserException("Actual payload size doesn't match declared payload size!") {}
     };
 }
 

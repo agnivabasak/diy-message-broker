@@ -3,6 +3,7 @@
 
 #include "parser_state.hpp"
 #include <string>
+#include <string_view>
 #include <atomic>
 #include <thread>
 
@@ -28,13 +29,18 @@ namespace nats{
         int m_payload_size;
         char m_payload_sub[INTERNAL_BUFFER_SIZE];
         void resetParsingVars();
+
         bool maxArgSizeReached();
+        bool maxMessageSizeReached();
         void verifyState();
         void closeConnection();
         void closeConnection(std::string msg);
         void processConnect();
         void processPing();
         void processPong();
+        void processPubArgs(std::string_view& pub_args);
+        void processPub(std::string_view& payload);
+        void processSub(std::string_view& sub_args);
         void startPongTimeoutThread();
         void stopTimeoutThread();
     };

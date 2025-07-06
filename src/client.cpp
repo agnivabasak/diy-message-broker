@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <string>
 #include <cstring>
+#include <string_view>
 #include <iostream>
 #include <chrono>
 #include <thread>
@@ -63,6 +64,10 @@ namespace nats{
 
     bool NatsClient::maxArgSizeReached(){
         return m_arg_len>=INTERNAL_BUFFER_SIZE;
+    }
+
+    bool NatsClient::maxMessageSizeReached(){
+        return m_msg_len>=INTERNAL_BUFFER_SIZE-1;
     }
 
     void NatsClient::verifyState(){
@@ -139,6 +144,90 @@ namespace nats{
         if(m_waiting_for_initial_pong){
             m_waiting_for_initial_pong=false;
         }
+    }
+
+    void NatsClient::processPubArgs(std::string_view& pub_args){
+        // Find the first space
+        size_t space_pos = pub_args.find(' ');
+        if (space_pos == std::string_view::npos) {
+            throw ArgumentParseException();
+        }
+
+        // Extract subject and payload size as string_views
+        std::string_view subject = pub_args.substr(0, space_pos);
+        std::string_view payload_size_str = pub_args.substr(space_pos + 1);
+
+        // Remove any leading/trailing spaces from payload_size_str
+        payload_size_str.remove_prefix(std::min(payload_size_str.find_first_not_of(' '), payload_size_str.size()));
+        payload_size_str.remove_suffix(payload_size_str.size() - payload_size_str.find_last_not_of(' ') - 1);
+
+        // Check for empty subject or payload_size_str
+        if (subject.empty() || payload_size_str.empty() || payload_size_str.find(' ') != std::string_view::npos) {
+            throw ArgumentParseException();
+        }
+
+        // Parse payload_size_str as integer
+        size_t idx = 0;
+        int payload_size = 0;
+        try {
+            payload_size = std::stoi(std::string(payload_size_str), &idx);
+        } catch (...) {
+            throw ArgumentParseException();
+        }
+        // Ensure the whole string was parsed
+        if (idx != payload_size_str.size() || payload_size < 0) {
+            throw ArgumentParseException();
+        }
+        if(payload_size>INTERNAL_BUFFER_SIZE){
+            throw MaximumMessageSizeReached();
+        }
+
+        m_payload_size = payload_size;
+
+        std::memset(m_payload_sub, 0, INTERNAL_BUFFER_SIZE);
+        size_t copy_len = std::min(subject.size(), static_cast<size_t>(INTERNAL_BUFFER_SIZE - 1));
+        std::memcpy(m_payload_sub, subject.data(), copy_len);
+        m_payload_sub[copy_len] = '\0';
+    }
+
+    void NatsClient::processPub(string_view& payload){
+        send(m_client_fd, "+OK\r\n", 5, 0);
+    }
+
+    void NatsClient::processSub(string_view& sub_args){
+        // Find the first space
+        size_t space_pos = sub_args.find(' ');
+        if (space_pos == std::string_view::npos) {
+            throw ArgumentParseException();
+        }
+
+        // Extract subject and subscription id as string_views
+        std::string_view subject = sub_args.substr(0, space_pos);
+        std::string_view sub_id_str = sub_args.substr(space_pos + 1);
+
+        // Remove any leading/trailing spaces from sub_id
+        sub_id_str.remove_prefix(std::min(sub_id_str.find_first_not_of(' '), sub_id_str.size()));
+        sub_id_str.remove_suffix(sub_id_str.size() - sub_id_str.find_last_not_of(' ') - 1);
+
+        // Check for empty subject or sub_id
+        if (subject.empty() || sub_id_str.empty() || sub_id_str.find(' ') != std::string_view::npos) {
+            throw ArgumentParseException();
+        }
+
+        // Parse sub_id as integer
+        size_t idx = 0;
+        int sub_id = -1;
+        try {
+            sub_id = std::stoi(std::string(sub_id_str), &idx);
+        } catch (...) {
+            throw ArgumentParseException();
+        }
+        // Ensure the whole string was parsed
+        if (idx != sub_id_str.size() || sub_id < 0) {
+            throw ArgumentParseException();
+        }
+
+        send(m_client_fd, "+OK\r\n", 5, 0);
     }
 }
 
