@@ -8,13 +8,17 @@
 #include <thread>
 
 namespace nats{
+
+    class NatsServer; // forward declaration because of circular dependency between server.hpp and client.hpp
+
     class NatsClient {
+        NatsServer* m_server;
         static constexpr int INTERNAL_BUFFER_SIZE = 1024*5;
         int m_client_fd;
         std::thread m_timeout_thread;
         std::atomic<bool> m_timeout_thread_running;
     public:
-        NatsClient(int client_fd);
+        NatsClient(int client_fd, NatsServer* server);
         ~NatsClient();
         bool m_waiting_for_initial_connect;
         bool m_waiting_for_initial_pong;

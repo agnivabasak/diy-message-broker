@@ -1,4 +1,5 @@
 #include "../include/nats/client.hpp"
+#include "../include/nats/server.hpp"
 #include "../include/nats/parser_state.hpp"
 #include "../include/nats/custom_specific_exceptions.hpp"
 #include <random>
@@ -16,7 +17,7 @@
 using namespace std;
 
 namespace nats{
-    NatsClient::NatsClient(int client_fd): 
+    NatsClient::NatsClient(int client_fd, NatsServer* server): 
         m_waiting_for_initial_connect(true), 
         m_waiting_for_initial_pong(false),
         m_arg_len(0),
@@ -25,7 +26,8 @@ namespace nats{
         m_drop(0),
         m_state(NatsParserState::OP_START),
         m_payload_size(0),
-        m_client_fd(client_fd)
+        m_client_fd(client_fd),
+        m_server(server)
     {
         random_device rd;
         mt19937 gen(rd());

@@ -1,0 +1,134 @@
+#include "../include/nats/server.hpp"
+#include "../include/nats/client.hpp"
+#include "../include/nats/parser.hpp"
+
+#include <random>
+#include <climits>
+#include <iostream>
+#include <string>
+#include <cstring>
+#include <unistd.h>
+#include <mutex>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <netdb.h>
+
+using namespace std;
+
+namespace nats {
+
+    constexpr int PORT = 4222;  // Telnet-like port
+    constexpr int BUFFER_SIZE = 1024;
+
+    NatsServer::NatsServer() {
+        random_device rd;
+        mt19937 gen(rd());
+        uniform_int_distribution<long long> dis(1, LLONG_MAX);
+        
+        m_server_id = dis(gen);
+    }
+
+    NatsServer::~NatsServer() {
+        for (auto& [id, client] : m_clients) {
+            delete client;
+        }
+        m_clients.clear();
+    }
+
+    void NatsServer::startServer(){
+        int server_fd, client_fd;
+        struct sockaddr_in server_addr {}, client_addr{};
+        socklen_t client_len = sizeof(client_addr);
+
+        server_fd = socket(AF_INET, SOCK_STREAM, 0);
+        if (server_fd == -1) {
+            perror("socket failed");
+            return;
+        }
+
+        server_addr.sin_family = AF_INET;
+        server_addr.sin_port = htons(PORT);
+        server_addr.sin_addr.s_addr = INADDR_ANY;
+
+        if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+            perror("bind failed");
+            close(server_fd);
+            return;
+        }
+
+        if (listen(server_fd, 5) < 0) {
+            perror("listen failed");
+            close(server_fd);
+            return;
+        }
+
+        m_server_fd = server_fd;
+
+        cout << "Telnet-style server listening on port " << PORT << "...\n";
+
+        // Vector to keep track of client threads
+        std::vector<std::thread> client_threads;
+
+        while (true) {
+            struct sockaddr_in client_addr {};
+            int client_fd = accept(m_server_fd, (struct sockaddr*)&client_addr, &client_len);
+            if (client_fd < 0) {
+                perror("accept failed");
+                continue; // Don't exit the server, just skip this iteration
+            }
+
+            // Lambda to handle each client in a separate thread
+            client_threads.emplace_back([this, client_fd, client_addr]() mutable {
+                cout << "Client connected: " << inet_ntoa(client_addr.sin_addr) << "\n";
+                auto* client = new nats::NatsClient(client_fd, this);
+                addClient(client);
+
+                string initResponse = "INFO {\"server_id\":"+ std::to_string(m_server_id) + ",\"server_name\":\"nats-message-broker\",\"version\":\"1.0.0\",\"client_id\":" + std::to_string(client->m_client_id) + ",\"client_ip\":\"" + std::string(inet_ntoa(client_addr.sin_addr)) + "\",\"host_ip\":\"0.0.0.0\",\"host_port\":" + std::to_string(PORT) + "}\r\n";
+                send(client_fd, initResponse.c_str(), initResponse.size(), 0);
+
+                char buffer[BUFFER_SIZE];
+                while (true) {
+                    memset(buffer, 0, BUFFER_SIZE);
+                    ssize_t bytes_received = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
+                    if (bytes_received <= 0) {
+                        cout << "Connection closed or error.\n";
+                        break;
+                    }
+                    nats::NatsParser::parse(client, buffer, bytes_received);
+                }
+
+                // Close connections
+                removeClient(client->m_client_id);
+                close(client_fd);
+                cout << "Client disconnected: " << inet_ntoa(client_addr.sin_addr) << "\n";
+            });
+        }
+
+        for (auto& t : client_threads) {
+            if (t.joinable()) t.join();
+        }
+    }
+
+    void NatsServer::addClient(NatsClient* client) {
+        std::lock_guard<std::mutex> lock(m_clients_mutex);
+        m_clients[client->m_client_id] = client;
+    }
+
+    void NatsServer::removeClient(long long client_id) {
+        std::lock_guard<std::mutex> lock(m_clients_mutex);
+        auto it = m_clients.find(client_id);
+        if (it != m_clients.end()) {
+            delete it->second;
+            m_clients.erase(it);
+        }
+    }
+
+    NatsClient* NatsServer::getClient(long long client_id) {
+        std::lock_guard<std::mutex> lock(m_clients_mutex);
+        auto it = m_clients.find(client_id);
+        return (it != m_clients.end()) ? it->second : nullptr;
+    }
+
+}

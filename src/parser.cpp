@@ -351,7 +351,7 @@ namespace nats{
                         memcpy(c->m_msg_buffer, buf+c->m_as, c->m_msg_len); 
                     }
                 }
-            }   else {
+            } else {
                 throw UnknownProtocolOperationException();
             }
         } catch (const NatsParserException &ex) {
