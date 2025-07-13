@@ -55,6 +55,7 @@ namespace nats{
         void processPubArgs(std::string_view& pub_args);
         void processPub(std::string_view& payload);
         void processSub(std::string_view& sub_args);
+        void processUnsub(std::string_view& unsub_args);
         void startPongTimeoutThread();
         void stopTimeoutThread();
     };

@@ -258,6 +258,43 @@ namespace nats{
         send(m_client_fd, "+OK\r\n", 5, 0);
     }
 
+    void NatsClient::processUnsub(std::string_view& unsub_args){
+        std::string_view sub_id_str = unsub_args;
+
+        // Remove any leading/trailing spaces from sub_id
+        sub_id_str.remove_prefix(std::min(sub_id_str.find_first_not_of(' '), sub_id_str.size()));
+        sub_id_str.remove_suffix(sub_id_str.size() - sub_id_str.find_last_not_of(' ') - 1);
+
+        // Check for empty subject or sub_id
+        if (sub_id_str.empty() || sub_id_str.find(' ') != std::string_view::npos) {
+            throw ArgumentParseException();
+        }
+
+        // Parse sub_id as integer
+        size_t idx = 0;
+        int sub_id = -1;
+        try {
+            sub_id = std::stoi(std::string(sub_id_str), &idx);
+        } catch (...) {
+            throw ArgumentParseException();
+        }
+        // Ensure the whole string was parsed
+        if (idx != sub_id_str.size() || sub_id < 0) {
+            throw ArgumentParseException();
+        }
+
+        // we need to remove the subscriptions from the common sublist of this client
+        vector<pair<vector<std::string>,NatsSubscription>> unsub_params = getUnsubParams(true,sub_id);
+        if(unsub_params.size()==0){
+            throw NoSuchSubscriptionIdException();
+        } else{
+            m_server->removeSubscriptions(unsub_params);
+            m_subscriptions.erase(sub_id);
+            send(m_client_fd, "+OK\r\n", 5, 0);
+        }
+        
+    }
+
     vector<pair<vector<std::string>,NatsSubscription>> NatsClient::getUnsubParams(bool filter_sub_id, int sub_id){
         vector<pair<vector<std::string>,NatsSubscription>> unsub_params;
 

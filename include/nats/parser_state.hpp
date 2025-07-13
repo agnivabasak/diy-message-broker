@@ -38,6 +38,14 @@ namespace nats{
         OP_SUB,
         OP_SUB_SPC,
         SUB_ARG,
+        // UNSUBSCRIBE
+        OP_U,
+        OP_UN,
+        OP_UNS,
+        OP_UNSU,
+        OP_UNSUB,
+        OP_UNSUB_SPC,
+        UNSUB_ARG
     };
 }
 

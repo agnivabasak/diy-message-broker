@@ -78,6 +78,12 @@ namespace nats
             explicit ExistingSubscriptionIdException()
                 : NatsNonFatalParserException("Subscription ID already exists!") {}
     };
+
+    class NoSuchSubscriptionIdException: public NatsNonFatalParserException {
+        public:
+            explicit NoSuchSubscriptionIdException()
+                : NatsNonFatalParserException("Subscription ID doesn't exist!") {}
+    };
 }
 
 #endif

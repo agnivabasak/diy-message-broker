@@ -24,6 +24,8 @@ namespace nats{
                             c->m_state = NatsParserState::OP_P;  
                         } else if(b=='S' || b=='s'){
                             c->m_state = NatsParserState::OP_S;
+                        } else if(b=='U' || b=='u'){
+                            c->m_state = NatsParserState::OP_U;
                         }else{
                             throw UnknownProtocolOperationException();
                         }
@@ -325,6 +327,73 @@ namespace nats{
                         }
                         
                         break;
+                    case NatsParserState::OP_U:
+                        if(b=='N' || b=='n'){
+                            c->m_state = NatsParserState::OP_UN;
+                        } else {
+                            throw UnknownProtocolOperationException();
+                        }
+                        break;
+                    case NatsParserState::OP_UN:
+                        if(b=='S' || b=='s'){
+                            c->m_state = NatsParserState::OP_UNS;
+                        } else {
+                            throw UnknownProtocolOperationException();
+                        }
+                        break;
+                    case NatsParserState::OP_UNS:
+                        if(b=='U' || b=='u'){
+                            c->m_state = NatsParserState::OP_UNSU;
+                        } else {
+                            throw UnknownProtocolOperationException();
+                        }
+                        break;
+                    case NatsParserState::OP_UNSU:
+                        if(b=='B' || b=='b'){
+                            c->m_state = NatsParserState::OP_UNSUB;
+                        } else {
+                            throw UnknownProtocolOperationException();
+                        }
+                        break;
+                    case NatsParserState::OP_UNSUB:
+                        if(b==' '||b=='\t'){
+                            c->m_state = NatsParserState::OP_UNSUB_SPC;
+                        } else {
+                            throw UnknownProtocolOperationException();
+                        }
+                        break;
+                    case NatsParserState::OP_UNSUB_SPC:
+                        if(b==' '||b=='\t'){
+                        } else {
+                            c->m_state = NatsParserState::UNSUB_ARG;
+                            c->m_as = i;
+                        }
+                        break;
+                    case NatsParserState::UNSUB_ARG:
+                        if(b=='\r'){
+                            c->m_drop=1;
+                        } else if(b=='\n'){
+                            //string view is memory efficient
+                            //as it doesnt copy contents rather just gives a view of the memory contents of the char buffer
+                            string_view arg_view;
+                            if(c->m_arg_len>0){
+                                arg_view = string_view(c->m_arg_buffer,c->m_arg_len);
+                            } else{
+                                arg_view = string_view(buf + c->m_as, i - c->m_drop - c->m_as);
+                            } 
+
+                            c->processUnsub(arg_view);
+                            c->resetParsingVars();
+                        } else {
+                            if(c->m_arg_len>0){
+                                if(c->maxArgSizeReached()){
+                                    throw MaximumArgumentSizeReachedException();
+                                }
+                                c->m_arg_buffer[c->m_arg_len] = b;
+                                c->m_arg_len++;
+                            }
+                        }
+                        break;
                     default:
                         throw UnknownProtocolOperationException();
                         break;
@@ -337,6 +406,7 @@ namespace nats{
                 c->m_state==NatsParserState::CONNECT_ARG 
                 || c->m_state==NatsParserState::PUB_ARG
                 || c->m_state==NatsParserState::SUB_ARG
+                || c->m_state==NatsParserState::UNSUB_ARG
                 ){
                 if(c->m_arg_len==0){
                     c->m_arg_len = buffer_size - c->m_as;
