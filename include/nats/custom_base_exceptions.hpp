@@ -11,6 +11,12 @@ namespace nats
         explicit NatsParserException(const std::string& message)
             : std::runtime_error(message) {}
     };
+
+    class NatsNonFatalParserException : public std::runtime_error {
+        public:
+            explicit NatsNonFatalParserException(const std::string& message)
+                : std::runtime_error(message) {}
+        };
 }
 
 #endif

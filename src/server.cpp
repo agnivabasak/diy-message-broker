@@ -1,6 +1,8 @@
-#include "../include/nats/server.hpp"
 #include "../include/nats/client.hpp"
+#include "../include/nats/server.hpp"
 #include "../include/nats/parser.hpp"
+#include "../include/nats/subscription.hpp"
+#include "../include/nats/sublist.hpp"
 
 #include <random>
 #include <climits>
@@ -8,6 +10,9 @@
 #include <string>
 #include <cstring>
 #include <unistd.h>
+#include <vector>
+#include <utility>
+#include <unordered_map>
 #include <mutex>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -28,13 +33,7 @@ namespace nats {
         uniform_int_distribution<long long> dis(1, LLONG_MAX);
         
         m_server_id = dis(gen);
-    }
-
-    NatsServer::~NatsServer() {
-        for (auto& [id, client] : m_clients) {
-            delete client;
-        }
-        m_clients.clear();
+        m_sublist = std::make_unique<NatsSublist>();
     }
 
     void NatsServer::startServer(){
@@ -82,8 +81,9 @@ namespace nats {
             // Lambda to handle each client in a separate thread
             client_threads.emplace_back([this, client_fd, client_addr]() mutable {
                 cout << "Client connected: " << inet_ntoa(client_addr.sin_addr) << "\n";
-                auto* client = new nats::NatsClient(client_fd, this);
-                addClient(client);
+                std::unique_ptr<NatsClient> client_unique_ptr = std::make_unique<NatsClient>(client_fd, this);
+                NatsClient* client = client_unique_ptr.get();
+                addClient(std::move(client_unique_ptr));
 
                 string initResponse = "INFO {\"server_id\":"+ std::to_string(m_server_id) + ",\"server_name\":\"nats-message-broker\",\"version\":\"1.0.0\",\"client_id\":" + std::to_string(client->m_client_id) + ",\"client_ip\":\"" + std::string(inet_ntoa(client_addr.sin_addr)) + "\",\"host_ip\":\"0.0.0.0\",\"host_port\":" + std::to_string(PORT) + "}\r\n";
                 send(client_fd, initResponse.c_str(), initResponse.size(), 0);
@@ -111,16 +111,15 @@ namespace nats {
         }
     }
 
-    void NatsServer::addClient(NatsClient* client) {
+    void NatsServer::addClient(std::unique_ptr<NatsClient>client) {
         std::lock_guard<std::mutex> lock(m_clients_mutex);
-        m_clients[client->m_client_id] = client;
+        m_clients[client->m_client_id] = std::move(client);
     }
 
     void NatsServer::removeClient(long long client_id) {
         std::lock_guard<std::mutex> lock(m_clients_mutex);
         auto it = m_clients.find(client_id);
         if (it != m_clients.end()) {
-            delete it->second;
             m_clients.erase(it);
         }
     }
@@ -128,7 +127,18 @@ namespace nats {
     NatsClient* NatsServer::getClient(long long client_id) {
         std::lock_guard<std::mutex> lock(m_clients_mutex);
         auto it = m_clients.find(client_id);
-        return (it != m_clients.end()) ? it->second : nullptr;
+        return (it != m_clients.end()) ? it->second.get() : nullptr;
+    }
+
+    void NatsServer::addSubscription(int sub_id, std::vector<std::string>& subject_list, long long client_id){
+        //for subscription the server just passes on the request to the Sublist Class
+        m_sublist->addSubscription({sub_id,client_id},subject_list);
+    }
+
+    void NatsServer::removeSubscriptions(vector<pair<vector<std::string>,NatsSubscription>> unsub_params){
+        for(auto&pair: unsub_params){
+            m_sublist->removeSubscription(pair.second,pair.first);
+        }
     }
 
 }

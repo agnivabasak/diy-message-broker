@@ -1,13 +1,16 @@
 #include "../include/nats/client.hpp"
 #include "../include/nats/server.hpp"
 #include "../include/nats/parser_state.hpp"
+#include "../include/nats/subscription.hpp"
 #include "../include/nats/custom_specific_exceptions.hpp"
 #include <random>
+#include <utility>
 #include <climits>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <string>
 #include <cstring>
+#include <vector>
 #include <string_view>
 #include <iostream>
 #include <chrono>
@@ -38,11 +41,17 @@ namespace nats{
 
     NatsClient::~NatsClient() {
         stopTimeoutThread();
+        // we need to remove the subscriptions from the common sublist of this client
+        m_server->removeSubscriptions(getUnsubParams());
     }
 
     void NatsClient::closeConnection(){
         stopTimeoutThread();
         close(m_client_fd);
+    }
+
+    void NatsClient::sendErrorMessage(string msg){
+        send(m_client_fd, msg.c_str(), msg.size(), 0);
     }
 
     void NatsClient::closeConnection(string msg){
@@ -181,7 +190,7 @@ namespace nats{
             throw ArgumentParseException();
         }
         if(payload_size>INTERNAL_BUFFER_SIZE){
-            throw MaximumMessageSizeReached();
+            throw MaximumMessageSizeReachedException();
         }
 
         m_payload_size = payload_size;
@@ -193,6 +202,9 @@ namespace nats{
     }
 
     void NatsClient::processPub(string_view& payload){
+        //parse subject and convert to subject list
+        std::string_view subject_view(m_payload_sub);
+        std::vector<std::string> subject_list = convertSubjectToList(subject_view, true);
         send(m_client_fd, "+OK\r\n", 5, 0);
     }
 
@@ -229,7 +241,77 @@ namespace nats{
             throw ArgumentParseException();
         }
 
+        //parse subject and convert to subject list
+        std::vector<std::string> subject_list = convertSubjectToList(subject, false);
+
+        //make server process the subscription and add to sublist
+        m_server->addSubscription(sub_id,subject_list,m_client_id);
+        //if adding to sublist succeeds then add subcription metadata to client
+        addSubscriptionMetadata(sub_id,std::string(subject));
+
         send(m_client_fd, "+OK\r\n", 5, 0);
+    }
+
+    vector<pair<vector<std::string>,NatsSubscription>> NatsClient::getUnsubParams(bool filter_sub_id, int sub_id){
+        vector<pair<vector<std::string>,NatsSubscription>> unsub_params;
+
+        if(filter_sub_id){
+            if(m_subscriptions.find(sub_id)!=m_subscriptions.end()){
+                std::string_view cur_subscription_subject = m_subscriptions[sub_id];
+                unsub_params.emplace_back(convertSubjectToList(cur_subscription_subject,false) , NatsSubscription{sub_id,m_client_id} );
+            }
+        } else {
+            for(const auto& pair: m_subscriptions){
+                std::string_view cur_subscription_subject = pair.second;
+                unsub_params.emplace_back(convertSubjectToList(cur_subscription_subject,false) , NatsSubscription{pair.first,m_client_id});
+            }
+        }
+
+        return unsub_params;
+    }
+
+    void NatsClient::addSubscriptionMetadata(int sub_id, std::string subject){
+        if(m_subscriptions.find(sub_id)!=m_subscriptions.end()){
+            //this means there is already a subscription with the current sub_id provided
+            throw ExistingSubscriptionIdException();
+        } else{
+            m_subscriptions[sub_id]=subject;
+        }
+    }
+
+    std::vector<std::string> NatsClient::convertSubjectToList(std::string_view& subject, bool is_publish) {
+        std::vector<std::string> subject_list; // thread_local to avoid issues in multithreaded context
+        subject_list.clear();
+    
+        size_t start = 0;
+        while (start < subject.size()) {
+            size_t end = subject.find('.', start);
+            if (end == std::string_view::npos) end = subject.size();
+            std::string token = std::string(subject.substr(start, end - start));
+    
+            // Check for empty token
+            if (token.empty()) {
+                if (is_publish)
+                    throw InvalidPublishSubjectException();
+                else
+                    throw InvalidSubscribeSubjectException();
+            }
+    
+            // For publish, "*" and ">" are not allowed as tokens
+            if (is_publish && (token == "*" || token == ">")) {
+                throw InvalidPublishSubjectException();
+            }
+    
+            // If token is ">", it must be the last one
+            if (token == ">" && end != subject.size()) {
+                throw InvalidSubscribeSubjectException();
+            }
+
+            subject_list.push_back(token);
+            start = end + 1;
+        }
+    
+        return subject_list;
     }
 }
 

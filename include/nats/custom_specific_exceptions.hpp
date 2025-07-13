@@ -25,15 +25,15 @@ namespace nats
             : NatsParserException("Expected PONG Operation!") {}
     };
 
-    class MaximumArgumentSizeReached: public NatsParserException {
+    class MaximumArgumentSizeReachedException: public NatsParserException {
     public:
-        explicit MaximumArgumentSizeReached()
+        explicit MaximumArgumentSizeReachedException()
             : NatsParserException("Maximum argument size reached!"){}
     };
 
-    class MaximumMessageSizeReached: public NatsParserException {
+    class MaximumMessageSizeReachedException: public NatsParserException {
     public:
-        explicit MaximumMessageSizeReached()
+        explicit MaximumMessageSizeReachedException()
             : NatsParserException("Maximum message payload size reached!"){}
     };
 
@@ -59,6 +59,24 @@ namespace nats
     public:
         explicit PayloadSizeMismatchException()
             : NatsParserException("Actual payload size doesn't match declared payload size!") {}
+    };
+
+    class InvalidPublishSubjectException: public NatsNonFatalParserException {
+        public:
+            explicit InvalidPublishSubjectException()
+                : NatsNonFatalParserException("Invalid Publish Subject!") {}
+    };
+
+    class InvalidSubscribeSubjectException: public NatsNonFatalParserException {
+        public:
+            explicit InvalidSubscribeSubjectException()
+                : NatsNonFatalParserException("Invalid Subscribe Subject!") {}
+    };
+
+    class ExistingSubscriptionIdException: public NatsNonFatalParserException {
+        public:
+            explicit ExistingSubscriptionIdException()
+                : NatsNonFatalParserException("Subscription ID already exists!") {}
     };
 }
 

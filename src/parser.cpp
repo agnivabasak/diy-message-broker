@@ -113,7 +113,7 @@ namespace nats{
                         } else {
                             if(c->m_arg_len>0){
                                 if(c->maxArgSizeReached()){
-                                    throw MaximumArgumentSizeReached();
+                                    throw MaximumArgumentSizeReachedException();
                                 }
                                 c->m_arg_buffer[c->m_arg_len] = b;
                                 c->m_arg_len++;
@@ -224,7 +224,7 @@ namespace nats{
                         } else {
                             if(c->m_arg_len>0){
                                 if(c->maxArgSizeReached()){
-                                    throw MaximumArgumentSizeReached();
+                                    throw MaximumArgumentSizeReachedException();
                                 }
                                 c->m_arg_buffer[c->m_arg_len] = b;
                                 c->m_arg_len++;
@@ -241,7 +241,7 @@ namespace nats{
                         } else {
                             if(c->m_msg_len>0){
                                 if(c->maxMessageSizeReached()){
-                                    throw MaximumMessageSizeReached();
+                                    throw MaximumMessageSizeReachedException();
                                 }
                                 c->m_msg_buffer[c->m_msg_len] = b;
                                 c->m_msg_len++;
@@ -317,7 +317,7 @@ namespace nats{
                         } else {
                             if(c->m_arg_len>0){
                                 if(c->maxArgSizeReached()){
-                                    throw MaximumArgumentSizeReached();
+                                    throw MaximumArgumentSizeReachedException();
                                 }
                                 c->m_arg_buffer[c->m_arg_len] = b;
                                 c->m_arg_len++;
@@ -356,7 +356,10 @@ namespace nats{
             }
         } catch (const NatsParserException &ex) {
             c->closeConnection("A Parser Exception occured : " + string(ex.what()) + "\r\n");
-		} catch (...) {
+		} catch(const NatsNonFatalParserException &ex){
+            c->sendErrorMessage("A Parser Exception occured : " + string(ex.what()) + "\r\n");
+            c->resetParsingVars();
+        } catch (...) {
             c->closeConnection("An unexpected error occured!\r\n");
 		}
     }

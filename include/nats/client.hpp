@@ -2,10 +2,14 @@
 #define NATS_CLIENT_H
 
 #include "parser_state.hpp"
+#include "subscription.hpp"
 #include <string>
 #include <string_view>
 #include <atomic>
 #include <thread>
+#include <vector>
+#include <utility>
+#include <unordered_map>
 
 namespace nats{
 
@@ -17,6 +21,10 @@ namespace nats{
         int m_client_fd;
         std::thread m_timeout_thread;
         std::atomic<bool> m_timeout_thread_running;
+        std::unordered_map<int, std::string> m_subscriptions; //mapping between sub_id and subject topic
+        void addSubscriptionMetadata(int sub_id, std::string subject);
+        std::vector<std::pair<std::vector<std::string>,NatsSubscription>> getUnsubParams(bool filter_sub_id=false, int sub_id=-1);
+        std::vector<std::string> convertSubjectToList(std::string_view& subject, bool is_publish);
     public:
         NatsClient(int client_fd, NatsServer* server);
         ~NatsClient();
@@ -39,6 +47,7 @@ namespace nats{
         void verifyState();
         void closeConnection();
         void closeConnection(std::string msg);
+        void sendErrorMessage(std::string msg);
         void processConnect();
         void processPing();
         void processPong();
