@@ -49,7 +49,7 @@ namespace nats{
         std::lock_guard<std::mutex> lock(m_sublist_mutex);
         std::vector<NatsSubscription> subscriptions;
         NatsSublistNode* cur_node;
-        std:queue<NatsSublistNode*> q;
+        std::queue<NatsSublistNode*> q;
         q.push(m_head.get());
         //we do a bfs to get all the subscriptions, each level is essentially one of the subsubjects in the subject_list
         for(std::string& subject_part: subject_list){
