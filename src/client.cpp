@@ -50,6 +50,10 @@ namespace nats{
         close(m_client_fd);
     }
 
+    void NatsClient::sendMessage(string msg){
+        send(m_client_fd, msg.c_str(), msg.size(), 0);
+    }
+
     void NatsClient::sendErrorMessage(string msg){
         send(m_client_fd, msg.c_str(), msg.size(), 0);
     }
@@ -203,9 +207,11 @@ namespace nats{
 
     void NatsClient::processPub(string_view& payload){
         //parse subject and convert to subject list
+        std::string subject = m_payload_sub;
         std::string_view subject_view(m_payload_sub);
         std::vector<std::string> subject_list = convertSubjectToList(subject_view, true);
         send(m_client_fd, "+OK\r\n", 5, 0);
+        m_server->publishMessage(subject,subject_list,std::string(payload));
     }
 
     void NatsClient::processSub(string_view& sub_args){
@@ -244,10 +250,10 @@ namespace nats{
         //parse subject and convert to subject list
         std::vector<std::string> subject_list = convertSubjectToList(subject, false);
 
+        //First add to metadata, essentially this is just a check that there doesn't exist a subscription tied to the same sub_id
+        addSubscriptionMetadata(sub_id,std::string(subject));
         //make server process the subscription and add to sublist
         m_server->addSubscription(sub_id,subject_list,m_client_id);
-        //if adding to sublist succeeds then add subcription metadata to client
-        addSubscriptionMetadata(sub_id,std::string(subject));
 
         send(m_client_fd, "+OK\r\n", 5, 0);
     }

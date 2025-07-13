@@ -136,8 +136,22 @@ namespace nats {
     }
 
     void NatsServer::removeSubscriptions(vector<pair<vector<std::string>,NatsSubscription>> unsub_params){
-        for(auto&pair: unsub_params){
+        for(auto& pair: unsub_params){
             m_sublist->removeSubscription(pair.second,pair.first);
+        }
+    }
+
+    void NatsServer::publishMessage(std::string& subject, std::vector<std::string>& subject_list, std::string msg){
+        //first we get list of Subscriptions to the particular topic
+        std::vector<NatsSubscription>subscriptions = m_sublist->getSubscriptionsForTopic(subject_list);
+        for(NatsSubscription& subscription: subscriptions){
+            NatsClient* client = getClient(subscription.m_client_id);
+            if(client !=nullptr){
+                client->sendMessage(
+                    "MSG "+subject+" "+std::to_string(subscription.m_sub_id)+" "+std::to_string(msg.length())+"\r\n"
+                    + msg +"\r\n"
+                );
+            }
         }
     }
 

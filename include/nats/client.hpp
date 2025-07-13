@@ -47,6 +47,7 @@ namespace nats{
         void verifyState();
         void closeConnection();
         void closeConnection(std::string msg);
+        void sendMessage(std::string msg);
         void sendErrorMessage(std::string msg);
         void processConnect();
         void processPing();

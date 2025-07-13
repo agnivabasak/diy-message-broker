@@ -12,10 +12,12 @@ namespace nats{
     class NatsSublist{
         std::unique_ptr<NatsSublistNode> m_head;
         std::mutex m_sublist_mutex; //to make sure the sublist is not changed by multiple threads at the same time
-    public:
+        void addSubscriptionsToVectorFromSublistNode(NatsSublistNode* cur_node, std::vector<NatsSubscription>& subscriptions);
+        public:
         NatsSublist();
         void addSubscription(NatsSubscription subscription, std::vector<std::string>& subject_list);
         void removeSubscription(NatsSubscription& subscription, std::vector<std::string>& subject_list);
+        std::vector<NatsSubscription> getSubscriptionsForTopic(std::vector<std::string>& subject_list);
     };
 }
 
