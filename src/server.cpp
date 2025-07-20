@@ -5,6 +5,7 @@
 #include "../include/nats/sublist.hpp"
 
 #include <random>
+#include <cerrno>
 #include <climits>
 #include <iostream>
 #include <string>
@@ -28,12 +29,17 @@ namespace nats {
     constexpr int BUFFER_SIZE = 1024;
 
     NatsServer::NatsServer() {
+        m_running = false;
         random_device rd;
         mt19937 gen(rd());
         uniform_int_distribution<long long> dis(1, LLONG_MAX);
         
         m_server_id = dis(gen);
         m_sublist = std::make_unique<NatsSublist>();
+    }
+
+    NatsServer::~NatsServer(){
+        if(m_running) stopServer();
     }
 
     void NatsServer::startServer(){
@@ -66,14 +72,16 @@ namespace nats {
         m_server_fd = server_fd;
 
         cout << "Telnet-style server listening on port " << PORT << "...\n";
+        m_running = true;
 
         // Vector to keep track of client threads
         std::vector<std::thread> client_threads;
 
-        while (true) {
+        while (m_running) {
             struct sockaddr_in client_addr {};
             int client_fd = accept(m_server_fd, (struct sockaddr*)&client_addr, &client_len);
             if (client_fd < 0) {
+                if (!m_running || errno == EBADF || errno == EINVAL) break;
                 perror("accept failed");
                 continue; // Don't exit the server, just skip this iteration
             }
@@ -109,6 +117,12 @@ namespace nats {
         for (auto& t : client_threads) {
             if (t.joinable()) t.join();
         }
+        stopServer();
+    }
+
+    void NatsServer::stopServer() { 
+        m_running = false; 
+        close(m_server_fd);
     }
 
     void NatsServer::addClient(std::unique_ptr<NatsClient>client) {
