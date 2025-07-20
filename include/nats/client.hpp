@@ -27,7 +27,7 @@ namespace nats{
         std::vector<std::string> convertSubjectToList(std::string_view& subject, bool is_publish);
     public:
         NatsClient(int client_fd, NatsServer* server);
-        ~NatsClient();
+        virtual ~NatsClient();
         bool m_waiting_for_initial_connect;
         bool m_waiting_for_initial_pong;
         long long m_client_id;
@@ -40,24 +40,24 @@ namespace nats{
         char m_arg_buffer[INTERNAL_BUFFER_SIZE];
         int m_payload_size;
         char m_payload_sub[INTERNAL_BUFFER_SIZE];
-        void resetParsingVars();
+        virtual void resetParsingVars();
 
-        bool maxArgSizeReached();
-        bool maxMessageSizeReached();
-        void verifyState();
-        void closeConnection();
-        void closeConnection(std::string msg);
-        void sendMessage(std::string msg);
-        void sendErrorMessage(std::string msg);
-        void processConnect();
-        void processPing();
-        void processPong();
-        void processPubArgs(std::string_view& pub_args);
-        void processPub(std::string_view& payload);
-        void processSub(std::string_view& sub_args);
-        void processUnsub(std::string_view& unsub_args);
-        void startPongTimeoutThread();
-        void stopTimeoutThread();
+        virtual bool maxArgSizeReached();
+        virtual bool maxMessageSizeReached();
+        virtual void verifyState();
+        virtual void closeConnection();
+        virtual void closeConnection(std::string msg);
+        virtual void sendMessage(std::string msg);
+        virtual void sendErrorMessage(std::string msg);
+        virtual void processConnect();
+        virtual void processPing();
+        virtual void processPong();
+        virtual void processPubArgs(std::string_view& pub_args);
+        virtual void processPub(std::string_view& payload);
+        virtual void processSub(std::string_view& sub_args);
+        virtual void processUnsub(std::string_view& unsub_args);
+        virtual void startPongTimeoutThread();
+        virtual void stopTimeoutThread();
     };
 }
 

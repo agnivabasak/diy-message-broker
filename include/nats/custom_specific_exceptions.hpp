@@ -37,9 +37,9 @@ namespace nats
             : NatsParserException("Maximum message payload size reached!"){}
     };
 
-    class JsonParseExcpetion: public NatsParserException {
+    class JsonParseException: public NatsParserException {
     public:
-        explicit JsonParseExcpetion()
+        explicit JsonParseException()
             : NatsParserException("Invalid JSON provided!"){}
     };
 

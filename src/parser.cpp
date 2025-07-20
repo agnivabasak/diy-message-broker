@@ -106,7 +106,7 @@ namespace nats{
                                 nlohmann::json::parse(json_view, nullptr, true);
                             } catch(const nlohmann::json::parse_error& e){
                                 //indicates invalid json
-                                throw JsonParseExcpetion();
+                                throw JsonParseException();
                             }
 
                             //process connect
@@ -421,8 +421,6 @@ namespace nats{
                         memcpy(c->m_msg_buffer, buf+c->m_as, c->m_msg_len); 
                     }
                 }
-            } else {
-                throw UnknownProtocolOperationException();
             }
         } catch (const NatsParserException &ex) {
             c->closeConnection("A Parser Exception occured : " + string(ex.what()) + "\r\n");

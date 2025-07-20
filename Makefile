@@ -4,6 +4,8 @@ CXXFLAGS := -std=c++17 -pthread -w -I/usr/include
 
 # Need nlohmann:json - sudo apt install nlohmann-json3-dev
 # Need build-essential - sudo apt-get install build-essential.
+# Need GoogleTest - sudo apt-get install libgtest-dev
+# Need GoogleMock - sudo apt-get install libgmock-dev
 
 # Folders
 SRC_DIR := src
