@@ -1,12 +1,13 @@
+# ---- Stage 1: Build and Test ----
 # Use Ubuntu 20.04 as the base image
-FROM ubuntu:20.04
+FROM ubuntu:20.04 AS buildtest
 
 # Avoid interactive prompts during package install
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install build-essential and nlohmann-json3-dev
+# Install build-essential, nlohmann-json3-dev, GoogleTest and GoogleMock
 RUN apt-get update && \
-    apt-get install -y build-essential nlohmann-json3-dev && \
+    apt-get install -y build-essential nlohmann-json3-dev libgtest-dev libgmock-dev cmake make && \
     rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
@@ -15,11 +16,24 @@ WORKDIR /app
 # Copy the entire project into the container
 COPY . .
 
-# Build the project using the Makefile
-RUN make
+# Build GoogleTest and GoogleMock (they are source-only packages)
+RUN cd /usr/src/gtest && cmake . && make && cp lib/*.a /usr/lib/
 
-# Expose the NATS server port
+# Build and run tests (fail build if tests fail)
+RUN make test
+
+# ---- Stage 2: Production ----
+FROM ubuntu:20.04
+
+RUN apt-get update && \
+    apt-get install -y libstdc++6 nlohmann-json3-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy only the production binary from the build stage
+COPY --from=buildtest /app/build/nats /app/build/nats
+
 EXPOSE 4222
 
-# Set the default command to run the server
 CMD ["./build/nats"]
