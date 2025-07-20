@@ -26,9 +26,9 @@ namespace nats {
         void removeClient(long long client_id);
         NatsClient* getClient(long long client_id);
 
-        void addSubscription(int sub_id, std::vector<std::string>& subject_list, long long client_id);
-        void removeSubscriptions(std::vector<std::pair<std::vector<std::string>,NatsSubscription>> unsub_params);
-        void publishMessage(std::string& subject, std::vector<std::string>& subject_list, std::string msg);
+        virtual void addSubscription(int sub_id, std::vector<std::string>& subject_list, long long client_id);
+        virtual void removeSubscriptions(std::vector<std::pair<std::vector<std::string>,NatsSubscription>> unsub_params);
+        virtual void publishMessage(std::string& subject, std::vector<std::string>& subject_list, std::string msg);
     };
 }
 

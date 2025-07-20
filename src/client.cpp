@@ -162,6 +162,7 @@ namespace nats{
     }
 
     void NatsClient::processPubArgs(std::string_view& pub_args){
+        verifyState();
         // Find the first space
         size_t space_pos = pub_args.find(' ');
         if (space_pos == std::string_view::npos) {
@@ -206,6 +207,7 @@ namespace nats{
     }
 
     void NatsClient::processPub(string_view& payload){
+        verifyState();
         //parse subject and convert to subject list
         std::string subject = m_payload_sub;
         std::string_view subject_view(m_payload_sub);
@@ -215,6 +217,7 @@ namespace nats{
     }
 
     void NatsClient::processSub(string_view& sub_args){
+        verifyState();
         // Find the first space
         size_t space_pos = sub_args.find(' ');
         if (space_pos == std::string_view::npos) {
@@ -259,6 +262,7 @@ namespace nats{
     }
 
     void NatsClient::processUnsub(std::string_view& unsub_args){
+        verifyState();
         std::string_view sub_id_str = unsub_args;
 
         // Remove any leading/trailing spaces from sub_id
