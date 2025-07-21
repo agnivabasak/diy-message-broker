@@ -1,5 +1,5 @@
 # diy-message-broker
-This is a minimal pub/sub message broker which is inspired by [`NATS`](https://docs.nats.io/reference/reference-protocols). It uses a zero-allocation byte parser like the original NATS and also uses a Trie-based subscription store for efficient wildcard matching.
+This is a minimal pub/sub message broker which is inspired by [`NATS`](https://docs.nats.io/reference/reference-protocols).<br> It supports multiple concurrent client connections, uses a zero-allocation byte parser like the original NATS and also uses a Trie-based subscription store for efficient wildcard matching.
 <br>
 
 ## Functionality
@@ -21,7 +21,33 @@ You can execute these commands after connecting to the nat-server that you spin 
 
 This is an example of how the flow could be like when using the nats-server:
 
+```
+Trying ::1...
+Connected to localhost.
+Escape character is '^]'.
+INFO {"server_id":4208158381076342694,"server_name":"nats-message-broker","version":"1.0.0","client_id":8890077863449949768,"client_ip":"172.17.0.1","host_ip":"0.0.0.0","host_port":4222}
+CONNECT {}
++OK
+PING
+PONG
+SUB foo.*.test 10
++OK
+PUB foo.abc.test 12
+Hello World!
++OK
+MSG foo.abc.test 10 12
+Hello World!
+UNSUB 10
++OK
+```
 ## Technical Architecture  
+
+Once the server is spun up, it uses one thread per client and mutex locks on common objects to make sure multiple clients can connect to the server at once. <br>
+
+### Zero-Allocation Byte Parser using FSM
+One of the first things that happen when a user types a command is that command goes through the Parser. The parser is designed to not allocate any extra memory during parsing which reduces the burden on the memory allocator and garbage collector. The orignal NATS parser is also designed in a similar way because performance matters in a large scale message broker. This zero-allocation byte parsing is achieved by using string_views rather than strings, performing copies of data only when necessary and by using a Finate State Machine (FSM) that goes byte by byte and checks for the ParserState and validity of operation.
+<br><br> The FSM diagram below shows how the parsing is performed.
+<br>
 <br>
  
 ```mermaid
@@ -86,6 +112,10 @@ direction LR
 
 
   ```
+<sub><i>Diagram generated using <a href="https://mermaid.js.org/">Mermaid.js</a></i></sub>
+
+### Trie-like subscription store (called Sublist)
+
 
 ## Issues or bugs in the tool? Want to add a new functionality?
 Contributions are always welcome. You could open up an issue if you feel like something is wrong with the tool or a PR if you just want to improve it.
