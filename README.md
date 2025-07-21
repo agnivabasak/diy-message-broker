@@ -45,7 +45,7 @@ UNSUB 10
 
 ### Using Docker
 
-The Docker build uses makefile internally but is simpler to run. The follwoing commands need to be executed in the project root directory:
+The Docker build uses makefile internally but is simpler to run. The following commands need to be executed in the project root directory:
 
 `docker build -t nats-broker .` - This is used to build the image. This also runs the unit and integration test cases and fails the build if they don't pass.
 <br>`docker run -p 4222:4222 nats-broker` - This is used to spin up the server on 4222 (you can change the host port to whatever you like).
