@@ -10,9 +10,9 @@ You can execute these commands after connecting to the nat-server that you spin 
 <br><br>The available commands are listed below:
 | Functionality | Command | Description |
 | ------------ | ------------ | ------------ |
-| CONNECT | `CONNECT {}` | Confirms connection to the server and provides connection parameters. This is the first command expected. Currently, the only check that is made is that the args provided are a valid json, the connection params are actually not used. Ther server responds with a PING after this and expects a PONG in return.
-| PING | `PING` | You can ping the server, it acts like a health check. If the server is up and running it will respond back with a PONG.
-| PONG | `PONG` | This is expected from the client if the server responds with a PING. In this implementation, the server only pings the client right after CONNECT is sent and acknowledged.
+| Connect | `CONNECT {}` | Confirms connection to the server and provides connection parameters. This is the first command expected. Currently, the only check that is made is that the args provided are a valid json, the connection params are actually not used. Ther server responds with a PING after this and expects a PONG in return.
+| Ping | `PING` | You can ping the server, it acts like a health check. If the server is up and running it will respond back with a PONG.
+| Pong | `PONG` | This is expected from the client if the server responds with a PING. In this implementation, the server only pings the client right after CONNECT is sent and acknowledged.
 | Publish Message | `PUB <subject/topic> <payloadSize>\r\n<payloadMessage>\r\n` | This is how you publish a message to a topic. "." is used to create heirarchies in topics. Topics are case sensitive.<br> Examples of valid topics for publish : "foo.bar", "Organization.TechTeam.Leads", "severance.season3.updates", etc. <br>Example of publish command : "PUB foo.bar 5\r\nHello\r\n".
 | Subscribe to a subject/topic | `SUB <subject/topic> <intSubscriptionId>\r\n` | This is how you subscribe to a topic. "." is used to create heirarchies in topics. Topics are case sensitive.<br>In the case of subscribe, wildcard characters can also be used. "\*" is for matching a single token and ">" is used for matching multiple tokens (and hence has to be the last character if used). <br>So, for example if you subscribe to "foo.\*" using "SUB foo.\* 10", if someone publishes to "foo.bar" you will get the message but if someone publishes to "foo.bar.test" you won't get the message. Now, if you subscribe to "foo.>", you will get the same message. For more info on subjects refer to the [`official NATS Documentation on subjects`](https://docs.nats.io/nats-concepts/subjects)
 | Unsubscribe to a topic | `UNSUB <intSubscriptionId>\r\n` | This is used to unsubscribe to a topic that your previously have subscribed to. Let's say you subscirbed to "foo.bar" with subscription ID "10", then you would use "UNSUB 10\r\n" to unsubscribe to that topic. This only unsubscribes to the particular subscription ID, you could be subscribed to the same topic using a different subscription ID, that subscription would still remain untouched.
@@ -40,6 +40,45 @@ Hello World!
 UNSUB 10
 +OK
 ```
+
+## Steps to run the server
+
+### Using Docker
+
+The Docker build uses makefile internally but is simpler to run. The follwoing commands need to be executed in the project root directory:
+
+`docker build -t nats-broker .` - This is used to build the image. This also runs the unit and integration test cases and fails the build if they don't pass.
+<br>`docker run -p 4222:4222 nats-broker` - This is used to spin up the server on 4222 (you can change the host port to whatever you like).
+
+<br>Once the server is up and running, you can connect to it using `telnet localhost 4222`
+
+### Using make
+
+If you are using make, make sure these are available in your system:
+build-essential, nlohmann-json3-dev, GoogleTest and GoogleMock
+<br><br>
+If not they can be installed using the following command:
+```
+    sudo apt-get update && 
+    sudo apt-get install -y build-essential nlohmann-json3-dev libgtest-dev libgmock-dev cmake make
+    rm -rf /var/lib/apt/lists/*
+```
+<br>
+
+You also need to build the source file for GoogleTest and GoogleMock (they are source-only packages)
+```
+    cd /usr/src/gtest && cmake . && make && cp lib/*.a /usr/lib/
+```
+
+Then you can use the following commands in the project root directory:
+
+`make clean` - To clear the build directory
+<br>`make test` - To build the executable for the unit and integration test cases. This will be generated in "build/test_nats". You can then run `./build/test_nats` to run the test cases.
+<br>`make all` - To build the actual executable for the nats-broker. This will be generated in "build/nats". You can then execute `./build/nats` to run the server.
+
+<br>
+Once the server is up and running, you can connect to it using `telnet localhost 4222`
+
 ## Technical Architecture  
 
 Once the server is spun up, it uses one thread per client and mutex locks on common objects to make sure multiple clients can connect to the server at once. <br>
