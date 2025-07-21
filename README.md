@@ -116,6 +116,33 @@ direction LR
 
 ### Trie-like subscription store (called Sublist)
 
+To store the subscriptions a Trie-like data structure is used. Each node is a sub-heirarchy in the topic. When there is a subsription, the trie is parsed level by level and if a node doesn't exist it's created. In the last sub-heirarchy, the subscription is stored ( A structure with client_id and subscription_id). We can take the below diagram as an example representation.
+
+```mermaid
+%%{init: {'themeVariables': {'fontSize': '10px'}}}%%
+flowchart
+direction LR
+ROOT((ROOT))
+ROOT --> FOO[foo]
+FOO --> BAR[bar]
+BAR --> TEST[["test<br/>(1, 10), (2, 11)"]]
+FOO --> STAR["\*"]
+STAR --> NEW[["new<br/>(3, 12)"]]
+FOO --> GT[["><br/>(4, 13)"]]
+ROOT --> WEATHER[weather]
+WEATHER --> INDIA[India]
+INDIA --> Bangalore[["Bangalore<br/>(5, 20)"]]
+ROOT --> STOCK[stock]
+STOCK --> NYSE[["NYSE<br/>(6, 30)"]]
+``` 
+<sub><i>Diagram generated using <a href="https://mermaid.js.org/">Mermaid.js</a></i></sub>
+
+Let's say we get a request from a client to publish a message to foo.bar.new. We will do a Breadth First Search (BFS). We will go level-by-level. 
+<br>
+First we go to "foo". 
+<br>Then, both "\*" as well as ">" match. Since ">" is a terminal character, we consider the subcription in that node. 
+<br>Then from "\*", we match with "new", so we consider that subscription as well.
+<br>So ultimately, we get the following pairs of (client_id, sub_id) : (4,13) and (3,12). The server then contacts the respective client and sends the message.
 
 ## Issues or bugs in the tool? Want to add a new functionality?
 Contributions are always welcome. You could open up an issue if you feel like something is wrong with the tool or a PR if you just want to improve it.
