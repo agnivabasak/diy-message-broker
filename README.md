@@ -50,7 +50,7 @@ The Docker build uses makefile internally but is simpler to run. The follwoing c
 `docker build -t nats-broker .` - This is used to build the image. This also runs the unit and integration test cases and fails the build if they don't pass.
 <br>`docker run -p 4222:4222 nats-broker` - This is used to spin up the server on 4222 (you can change the host port to whatever you like).
 
-<br>Once the server is up and running, you can connect to it using `telnet localhost 4222`
+Once the server is up and running, you can connect to it using `telnet localhost 4222`
 
 ### Using make
 
@@ -76,7 +76,6 @@ Then you can use the following commands in the project root directory:
 <br>`make test` - To build the executable for the unit and integration test cases. This will be generated in "build/test_nats". You can then run `./build/test_nats` to run the test cases.
 <br>`make all` - To build the actual executable for the nats-broker. This will be generated in "build/nats". You can then execute `./build/nats` to run the server.
 
-<br>
 Once the server is up and running, you can connect to it using `telnet localhost 4222`
 
 ## Technical Architecture  
