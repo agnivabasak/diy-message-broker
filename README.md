@@ -1,7 +1,30 @@
 # diy-message-broker
-A minimal message broker based on NATS
+This is a minimal pub/sub message broker which is inspired by [`NATS`](https://docs.nats.io/reference/reference-protocols). It uses a zero-allocation byte parser like the original NATS and also uses a Trie-based subscription store for efficient wildcard matching.
+<br>
 
-  ```mermaid
+## Functionality
+
+### Commands
+You can execute these commands after connecting to the nat-server that you spin up on localhost 4222 (using: telnet localhost 4222).
+<br> This is based on NATS, so you can refer to the [`Nats Demo`](https://docs.nats.io/reference/reference-protocols/nats-protocol-demo) to get an idea of how to use this. 
+<br><br>The available commands are listed below:
+| Functionality | Command | Description |
+| ------------ | ------------ | ------------ |
+| CONNECT | `CONNECT {}` | Confirms connection to the server and provides connection parameters. This is the first command expected. Currently, the only check that is made is that the args provided are a valid json, the connection params are actually not used. Ther server responds with a PING after this and expects a PONG in return.
+| PING | `PING` | You can ping the server, it acts like a health check. If the server is up and running it will respond back with a PONG.
+| PONG | `PONG` | This is expected from the client if the server responds with a PING. In this implementation, the server only pings the client right after CONNECT is sent and acknowledged.
+| Publish Message | `PUB <subject/topic> <payloadSize>\r\n<payloadMessage>\r\n` | This is how you publish a message to a topic. "." is used to create heirarchies in topics. Topics are case sensitive.<br> Examples of valid topics for publish : "foo.bar", "Organization.TechTeam.Leads", "severance.season3.updates", etc. <br>Example of publish command : "PUB foo.bar 5\r\nHello\r\n".
+| Subscribe to a subject/topic | `SUB <subject/topic> <intSubscriptionId>\r\n` | This is how you subscribe to a topic. "." is used to create heirarchies in topics. Topics are case sensitive.<br>In the case of subscribe, wildcard characters can also be used. "\*" is for matching a single token and ">" is used for matching multiple tokens (and hence has to be the last character if used). <br>So, for example if you subscribe to "foo.\*" using "SUB foo.\* 10", if someone publishes to "foo.bar" you will get the message but if someone publishes to "foo.bar.test" you won't get the message. Now, if you subscribe to "foo.>", you will get the same message. For more info on subjects refer to the [`official NATS Documentation on subjects`](https://docs.nats.io/nats-concepts/subjects)
+| Unsubscribe to a topic | `UNSUB <intSubscriptionId>\r\n` | This is used to unsubscribe to a topic that your previously have subscribed to. Let's say you subscirbed to "foo.bar" with subscription ID "10", then you would use "UNSUB 10\r\n" to unsubscribe to that topic. This only unsubscribes to the particular subscription ID, you could be subscribed to the same topic using a different subscription ID, that subscription would still remain untouched.
+
+### Example Flow
+
+This is an example of how the flow could be like when using the nats-server:
+
+## Technical Architecture  
+<br>
+ 
+```mermaid
   
 stateDiagram-v2
 direction LR
@@ -63,3 +86,6 @@ direction LR
 
 
   ```
+
+## Issues or bugs in the tool? Want to add a new functionality?
+Contributions are always welcome. You could open up an issue if you feel like something is wrong with the tool or a PR if you just want to improve it.
